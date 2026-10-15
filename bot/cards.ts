@@ -23,7 +23,7 @@ const FONTS: [string, string][] = [
   ...[500, 600, 700].map((w): [string, string] => [`@fontsource/jetbrains-mono/files/jetbrains-mono-latin-${w}-normal.woff2`, "JetBrains Mono Variable"]),
 ];
 let fontsReady = false;
-function loadFonts() {
+export function loadFonts() {
   if (fontsReady) return;
   fontsReady = true;
   for (const [file, family] of FONTS) {

@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DownloadSimple, Flame, ShareNetwork, X as Close, XLogo } from "@phosphor-icons/react";
 import { DEMO, demoTree, type Forest } from "../lib/api";
+import { markTree, type Mark } from "../lib/marks";
 import { nameFor } from "../lib/alias";
 import { drawCard, postText, type CardTree } from "../lib/sharecard";
 import { speciesOf } from "../lib/trees";
@@ -104,29 +105,27 @@ export function ShareCard() {
   );
 }
 
+/** Opens any burned tree's card: from the engine's book, or made up in the demo. */
+export async function openTree(n: number, total: number) {
+  if (DEMO) {
+    const d = demoTree(n);
+    return openShare({ n, amount: d.amount.replace(/,/g, ""), t: d.t, total, who: nameFor(d.buyer, d.nickname, d.x).name });
+  }
+  const j = await fetch(`/api/tree/${n}`)
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+  if (j?.data) openShare({ n, amount: j.data.amount, t: j.data.t, total: j.data.total, who: j.data.who });
+}
+
 /** A link to /?tree=<n> (where /tree/<n> sends people) opens that tree's card. */
 export function useTreeFromLink(live: boolean, total: number) {
   useEffect(() => {
     const n = parseInt(new URLSearchParams(window.location.search).get("tree") || "", 10);
-    if (!(n > 0)) return;
-    const clean = () => {
-      const u = new URL(window.location.href);
-      u.searchParams.delete("tree");
-      window.history.replaceState(null, "", u.pathname + u.search + u.hash);
-    };
-    if (DEMO) {
-      const d = demoTree(n);
-      openShare({ n, amount: d.amount.replace(/,/g, ""), t: d.t, total, who: nameFor(d.buyer, d.nickname, d.x).name });
-      return clean();
-    }
-    if (!live) return;
-    fetch(`/api/tree/${n}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (j?.data) openShare({ n, amount: j.data.amount, t: j.data.t, total: j.data.total, who: j.data.who });
-      })
-      .catch(() => {})
-      .finally(clean);
+    if (!(n > 0) || (!DEMO && !live)) return;
+    const u = new URL(window.location.href);
+    u.searchParams.delete("tree");
+    window.history.replaceState(null, "", u.pathname + u.search + u.hash);
+    openTree(n, total);
   }, [live, total]);
 }
 
@@ -152,7 +151,10 @@ export function MarkBanner({ forest }: { forest: Forest | null }) {
     }
     const fresh = forest.marks.filter((m) => !seen.current!.has(m));
     fresh.forEach((m) => seen.current!.add(m));
-    if (fresh.length) setMark({ m: fresh[fresh.length - 1], n: forest.burned });
+    if (fresh.length) {
+      const m = fresh[fresh.length - 1];
+      setMark({ m, n: markTree(m as Mark, forest.total) });
+    }
   }, [forest]);
   useEffect(() => {
     if (!mark) return;
@@ -161,16 +163,13 @@ export function MarkBanner({ forest }: { forest: Forest | null }) {
   }, [mark]);
   if (!mark || !forest) return null;
   const gone = mark.m === "gone";
-  const r = forest.recent.find((b) => b.n === mark.n) ?? forest.recent[0];
   return (
     <div className={`markbar ${gone ? "is-gone" : ""}`} role="status">
       <span className="markbar__k num">{gone ? "The end" : mark.m === "last100" ? "Last 100" : `${mark.m} cleared`}</span>
       <p>{MARK_LINE[mark.m] ?? ""}</p>
-      {r ? (
-        <button type="button" className="btn is-fire is-small" onClick={() => openShare({ n: r.n, amount: r.amount, t: r.t, total: forest.total, who: nameFor(r.buyer, r.nickname, r.x).name })}>
-          {gone ? "The last tree's card" : `Tree #${r.n.toLocaleString("en-US")}'s card`}
-        </button>
-      ) : null}
+      <button type="button" className="btn is-fire is-small" onClick={() => openTree(mark.n, forest.total)}>
+        {gone ? "The last tree's card" : `Tree #${mark.n.toLocaleString("en-US")}'s card`}
+      </button>
       <button type="button" className="toast__x" onClick={() => setMark(null)} aria-label="Dismiss">
         <Close weight="bold" />
       </button>

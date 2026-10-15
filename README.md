@@ -27,23 +27,77 @@ amount is at least `TREE_MIN_TOKENS` (default 10,000), so dust buys can't clear 
 `FOREST_TREES` (default 5,000) is the island's size. The counter is saved with the rest of the state
 and reset with it when the token changes.
 
-## Share card
+## Tests and checks
 
-`src/lib/sharecard.ts` draws a 1200 by 630 PNG in the browser for any burned tree: the island as it
-stood when that tree burned, a flame on its cell, the tree's name and age, trees left, tokens bought.
-It opens from the ticker (any tree), from a wallet's record (its own trees, tracked by the engine as
-`treeCount` and `trees` on each holder, display only), and from a toast when the connected wallet's own
-buy burns a tree. Save, Share (where the browser shares files) or Post on X (text only: X intents take no picture).
+```bash
+npm test                                   # forest rules, marks, the X signature, map repaints (13 tests)
+npx tsx scripts/forest-dryrun.ts 0xTOKEN   # buy detection against a real Pons token, read only (run on the server)
+npx tsx scripts/card-preview.ts <dir>      # draws the server's cards to files
+```
+
+The forest rules live in `bot/forest.ts` (no chain needed, so they are tested). The dry run reads any
+Pons token's Transfers and prints which would burn a tree and why the others would not. Run it on a
+token that already trades before $PALM exists, and once more after the first $PALM buys.
+
+## Share cards and link previews
+
+`src/card/draw.ts` draws the cards (1200 by 630) with no DOM, so the page and the engine draw the same thing:
+
+- In the page: Save, Share, Post on X. A post links to `/tree/<n>`.
+- In the engine (`bot/cards.ts`, `@napi-rs/canvas`, static font files from `@fontsource`):
+  `/api/card/site.png` (the island now; the page's `og:image`), `/api/card/tree/<n>.png`, and
+  `/tree/<n>`, a page whose preview on X and Telegram is that tree's card and which sends people on to
+  `/?tree=<n>`. nginx sends `/tree/` to the engine (`scripts/install-server.sh`).
+- The engine keeps every tree in a book (`state.forest.book`), so any tree can get its card.
+- `og:image` must be absolute: the build writes `SITE_URL` from `.env` into `index.html`.
+
+## Marks and the end
+
+At 10, 25, 50, 75 and 90% cleared, at 100 trees left and at the last tree (`src/lib/marks.ts`):
+the page shows a banner with that tree's card; under 100 the hero warns and the meter pulses; when the
+forest is gone the hero and the closing change, Oren's pin and tree are gone, and the last tree's card
+is one click away. With `X_POST_*` set the engine posts each mark reached live (`bot/xpost.ts`).
+Try them in the demo: `?stage=quarter`, `?stage=last100`, `?stage=gone`; `?from=<n>&pace=<ms>` sets
+where the demo starts and how fast it burns.
+
+## Tuning the forest
+
+How long the island lasts is the number of qualifying buys. Pick the size and the smallest buy before
+launch (`.env`, then `pm2 restart palm-engine --update-env`):
+
+| Setting | Default | What it does |
+|---|---|---|
+| `FOREST_TREES` | 5000 | trees on the island |
+| `TREE_MIN_TOKENS` | 10000 | smallest buy, in tokens |
+| `TREE_MIN_USD` | 0 (off) | smallest buy in dollars, once a price is known |
+
+At a launch price around $0.00004, 10,000 tokens is about $0.40: a bot could clear all 5,000 trees with
+about $2,000 of buys. With `TREE_MIN_USD=5` it takes at least $25,000 of buys, and the token minimum
+still applies before a price exists. The island lasts as many qualifying buys as it has trees: if the
+first day brings 2,000 of them, 5,000 trees last two or three days; double `FOREST_TREES` for a slower
+burn. (2,000 is an example, not a measured Pons figure: watch the first hours and adjust before people
+get used to the numbers.) Change these before launch: the
+map is drawn from the share of trees burned, so changing the size later moves the fire front.
+
+## Deploy and content
+
+- `DEPLOY-VPS.md`: install on a VPS, HTTPS, and the checks after launch (`scripts/postlaunch-check.sh`).
+- `konten-x/`: logo, banner, teaser, the timelapse video, post pictures and the post texts (`caption.md`).
+  Stills: `npx tsx scripts/content.ts`.
 
 ## Not done yet
 
-- No token, domain, X account or server yet. `X_URL` in `src/lib/api.ts` is empty. `public/terms.html`
-  and `public/privacy.html` say `your-domain.example`.
-- Not tested against a live token yet: the buy detection should be checked on the first real buys.
+- No token, domain, X account or server yet. `X_URL` in `src/lib/api.ts` is empty.
+- Buy detection has passed its tests and is ready for the dry run, but has not seen a real chain:
+  the Robinhood RPC is blocked from the dev laptop. Run the dry run on the server before launch.
+- X posting is written against X's API and its signature matches X's published example, but has not
+  posted for real: it needs the project's X keys.
 
 ## Launch checklist
 
-1. Launch $PALM on Pons **from the wallet whose key goes into the engine**.
-2. Put a little ETH in it for gas.
-3. `/lotnok` → CA, key, treasury, admin secret → Save. Check `/api/status` shows the token, an indexed block and `forest`.
-4. The first Reward runs once the escrow reaches 0.02 ETH and at least one wallet is eligible.
+1. Deploy (`DEPLOY-VPS.md`), with `SITE_URL` on https.
+2. Dry run the buy detection on any trading Pons token.
+3. Set `FOREST_TREES`, `TREE_MIN_TOKENS`, `TREE_MIN_USD`; optionally `X_POST_*`.
+4. Launch $PALM on Pons **from the wallet whose key goes into the engine**, with a little ETH for gas.
+5. `/lotnok` → CA, key, treasury, admin secret → Save. `sh scripts/site-mode.sh live`.
+6. After the first buys: `sh scripts/postlaunch-check.sh 0xCA`.

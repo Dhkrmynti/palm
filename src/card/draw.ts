@@ -239,7 +239,7 @@ function roundRect(g: Ctx, x: number, y: number, w: number, h: number, r: number
 }
 
 /** The palm in a ring of fire, as on the top bar. Lines only, so no Path2D is needed. */
-function drawMark(g: Ctx, x: number, y: number, size: number) {
+export function drawMark(g: Ctx, x: number, y: number, size: number) {
   g.save();
   g.translate(x, y);
   g.scale(size / 32, size / 32);

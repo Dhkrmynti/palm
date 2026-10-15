@@ -13,3 +13,10 @@ export function marksAt(burned: number, total: number): Mark[] {
 
 /** Where the island stands: still burning, the last hundred, or gone. */
 export const stageOf = (burned: number, total: number) => (burned >= total ? "gone" : total - burned <= 100 ? "last100" : "burning");
+
+/** The tree that passes a mark: tree 500 passes 10% of 5,000, tree 4,900 starts the last hundred. */
+export function markTree(m: Mark, total: number) {
+  if (m === "gone") return total;
+  if (m === "last100") return Math.max(1, total - 100);
+  return Math.ceil((total * parseInt(m, 10)) / 100);
+}

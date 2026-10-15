@@ -47,8 +47,9 @@ Money keeps its plain name: Reward, Treasury.
 - **A winner and a victim.** The ten plantation owners get paid; Oren's tree is the clock everyone watches.
 - **Sellers are punished in public:** they drift off as haze, struck out.
 
-Done: the share card ("I burned an Ebony. 312 years old."). Ideas for later: milestone events at 25/50/75%
-cleared; a "last tree" countdown under 100 trees left; an X post from the engine per milestone.
+Done: the share card ("I burned an Ebony. 312 years old.") with link previews per tree; marks at
+10/25/50/75/90% and the last hundred, posted to X by the engine; the ending when the last tree burns.
+An open question: a prize for whoever burns the last tree (it would move funds, so it is not built).
 
 ## Mechanics (unchanged)
 

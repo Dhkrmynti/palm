@@ -101,3 +101,15 @@ test("the X signature matches X's published example", () => {
 test("mark posts fit in one post", () => {
   for (const m of ["10%", "50%", "last100", "gone"] as const) assert.ok(markText(m, 4900, 5000, "https://example.fun/tree/4900").length <= 280);
 });
+
+test("the tree that passes each mark", async () => {
+  const { markTree } = await import("../src/lib/marks");
+  assert.equal(markTree("10%", 5000), 500);
+  assert.equal(markTree("25%", 5000), 1250);
+  assert.equal(markTree("last100", 5000), 4900);
+  assert.equal(markTree("gone", 5000), 5000);
+  for (const m of ["10%", "25%", "50%", "75%", "90%", "last100", "gone"] as const) {
+    const n = markTree(m, 5000);
+    assert.ok(marksAt(n, 5000).includes(m) && !marksAt(n - 1, 5000).includes(m), m);
+  }
+});

@@ -351,7 +351,14 @@ const now = () => Math.floor(Date.now() / 1000);
  *  ?stage=quarter|last100|gone starts it just before that moment, to see it happen. */
 let DEMO_BURNED = (() => {
   const st = typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("stage");
+  const from = parseInt(new URLSearchParams(typeof window === "undefined" ? "" : window.location.search).get("from") || "", 10);
+  if (from >= 0 && from <= 5000) return from;
   return st === "quarter" ? 1247 : st === "last100" ? 4898 : st === "gone" ? 4997 : 1687;
+})();
+/** ?pace=<ms> burns demo trees faster, for recording a timelapse. */
+const DEMO_PACE = (() => {
+  const v = parseInt(typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("pace") || "", 10);
+  return v >= 20 && v <= 60000 ? v : 6500;
 })();
 
 export const demoStatus = (): Status => ({
@@ -631,5 +638,5 @@ if (typeof window !== "undefined" && DEMO) {
     demoBurns.unshift(demoBurn(DEMO_BURNED, now()));
     demoBurns.length = Math.min(demoBurns.length, 30);
     window.dispatchEvent(new Event("rbank:refresh"));
-  }, 6500);
+  }, DEMO_PACE);
 }
