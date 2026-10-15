@@ -57,6 +57,7 @@ function onMark(m: Mark, n: number) {
 import { UNISWAP_V4_UNIVERSAL_ROUTER } from "./uniswap-v4";
 import { recordTree, treeAt, whyNotATree, type BuyRules, type Mark } from "./forest";
 import { postMark } from "./xpost";
+import { sitePng, treePage, treePng } from "./cards";
 import { bylineOf, bylineMessage, claimByline, clearX, issueNonce, mugshotOf, rateLimited, removeByline, setX, spendNonce, xMessage, xOf } from "./byline";
 import { backTo, finishLink, parkDemoResult, startLink, takeDemoResult, xDemoEnabled, xEnabled } from "./xlink";
 
@@ -540,6 +541,26 @@ function send(res: http.ServerResponse, code: number, data: unknown) {
   res.end(JSON.stringify(data));
 }
 
+function sendRaw(res: http.ServerResponse, code: number, type: string, body: string | Buffer, cache: string, extra: Record<string, string> = {}) {
+  res.writeHead(code, { "Content-Type": type, "Cache-Control": cache, "Access-Control-Allow-Origin": "*", ...extra });
+  res.end(body);
+}
+
+/** The site's own address, for link previews: SITE_URL, else what the request came in on. */
+const siteUrl = () => (process.env.SITE_URL || "").replace(/\/$/, "");
+const siteHost = () => siteUrl().replace(/^https?:\/\//, "");
+
+/** One tree as a card wants it: whole tokens, the buyer as shown on the site. */
+function cardTree(n: number) {
+  if (!Number.isInteger(n) || n < 1) return null;
+  const t = treeAt(state.forest, n);
+  if (!t) return null;
+  const nick = bylineOf(t.buyer);
+  const x = xOf(t.buyer);
+  const who = x ? `@${x.username}` : nick || `${t.buyer.slice(0, 6)}…${t.buyer.slice(-4)}`;
+  return { n, amount: fmt(t.amount), t: t.t, total: config.forestTrees, who, buyer: t.buyer, tx: t.tx };
+}
+
 const fmt = (raw: string | bigint) => ethers.formatUnits(typeof raw === "bigint" ? raw : big(raw), decimals);
 const ethOf = (raw: string | bigint) => ethers.formatEther(typeof raw === "bigint" ? raw : big(raw));
 
@@ -762,6 +783,31 @@ const server = http.createServer((req, res) => {
         recent: state.forest.recent.slice(0, 30).map((b) => ({ ...b, amount: fmt(b.amount), nickname: bylineOf(b.buyer), x: xOf(b.buyer) })),
       },
     });
+  }
+
+  // One tree from the book, for its card. Read only.
+  const treeM = p.match(/^\/api\/tree\/(\d+)$/);
+  if (req.method === "GET" && treeM) {
+    const t = cardTree(parseInt(treeM[1], 10));
+    if (!t) return send(res, 404, { success: false, error: "That tree has not burned." });
+    return send(res, 200, { success: true, data: t });
+  }
+
+  // Link previews: the cards as pictures, and a page per tree that shows its card.
+  if (req.method === "GET" && p === "/api/card/site.png") {
+    return sendRaw(res, 200, "image/png", sitePng(state.forest.burned, config.forestTrees, siteHost()), "public, max-age=120");
+  }
+  const cardM = p.match(/^\/api\/card\/tree\/(\d+)\.png$/);
+  if (req.method === "GET" && cardM) {
+    const t = cardTree(parseInt(cardM[1], 10));
+    if (!t) return send(res, 404, { success: false, error: "That tree has not burned." });
+    return sendRaw(res, 200, "image/png", treePng(t, siteHost()), "public, max-age=31536000, immutable");
+  }
+  const pageM = p.match(/^\/tree\/(\d+)$/);
+  if (req.method === "GET" && pageM) {
+    const t = cardTree(parseInt(pageM[1], 10));
+    if (!t) return sendRaw(res, 302, "text/plain", "", "no-store", { Location: "/" });
+    return sendRaw(res, 200, "text/html; charset=utf-8", treePage(t, siteUrl()), "public, max-age=300");
   }
 
   // Diamond hands: the eligible holders ranked by how long they have held (earliest first buy first). Read only.

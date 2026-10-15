@@ -3,6 +3,7 @@
  * counter and the radio log sit over it like the readouts on a monitoring feed.
  */
 import { useMemo, useRef } from "react";
+import type React from "react";
 import { ArrowDown } from "@phosphor-icons/react";
 import { DEMO, type Forest, type Pond, type Status } from "../lib/api";
 import { nameFor } from "../lib/alias";
@@ -11,6 +12,8 @@ import { useNow } from "../lib/clock";
 import type { Line } from "../lib/feed";
 import { IslandMap, type Pin } from "../map/IslandMap";
 import { BuyButton, openPlot } from "../ui/Bits";
+import { stageOf } from "../lib/marks";
+import { openShare } from "../ui/ShareCard";
 
 const ago = (sec: number) => (sec < 60 ? `${Math.max(1, Math.floor(sec))}s` : sec < 3600 ? `${Math.floor(sec / 60)}m` : `${Math.floor(sec / 3600)}h`);
 
@@ -20,13 +23,15 @@ export function Hero({ status, pond, forest, feed }: { status: Status | null; po
   const burned = live ? (forest?.burned ?? status?.forest?.burned ?? 0) : 0;
   const left = Math.max(0, total - burned);
   const pct = total > 0 ? (burned / total) * 100 : 0;
+  const stage = live ? stageOf(burned, total) : "burning";
+  const last = forest?.last ?? null;
 
   const pins: Pin[] = useMemo(
     () => (live ? (pond?.rows ?? []).slice(0, 10) : []).map((r) => ({ id: r.addr.toLowerCase(), addr: r.addr, name: nameFor(r.addr, r.nickname, r.x).name })),
     [pond, live],
   );
   const house = live && pond?.house ? pond.house : null;
-  const oren = useMemo(() => (house ? { id: house.addr, addr: house.addr, name: nameFor(house.addr, house.nickname, house.x).name } : null), [house?.addr, house?.nickname, house?.x?.username]);
+  const oren = useMemo(() => (house && stage !== "gone" ? { id: house.addr, addr: house.addr, name: nameFor(house.addr, house.nickname, house.x).name } : null), [house?.addr, house?.nickname, house?.x?.username, stage]);
   const gone = useRef(new Set<string>());
   for (const a of pond?.sold ?? []) gone.current.add(a.toLowerCase());
   for (const o of pond?.out ?? []) gone.current.add(o.addr.toLowerCase());
@@ -36,7 +41,7 @@ export function Hero({ status, pond, forest, feed }: { status: Status | null; po
   const clock = new Date(now * 1000).toLocaleTimeString("en-GB", { timeZone: "Asia/Jakarta", hour12: false });
 
   return (
-    <section className="hero" id="top" aria-label="The island">
+    <section className={`hero is-${stage}`} id="top" aria-label="The island" style={{ "--cleared": (pct / 100).toFixed(3) } as React.CSSProperties}>
       <div className="hero__map">
         <IslandMap burned={burned} total={total} pins={pins} oren={oren} gone={gone.current} onPick={openPlot} />
         <div className="hero__scan" aria-hidden="true" />
@@ -50,28 +55,52 @@ export function Hero({ status, pond, forest, feed }: { status: Status | null; po
       </div>
 
       <div className="hero__copy">
-        <p className="hero__k num">{ISLAND} · a forest island · {TICKER}</p>
-        <h1 className="hero__h">
-          Every buy
-          <br />
-          burns <em>a tree.</em>
-        </h1>
+        <p className="hero__k num">
+          {stage === "last100" ? (
+            <span className="hero__alarm">● Last {left} trees · Oren's tree is the last one</span>
+          ) : stage === "gone" ? (
+            `${ISLAND} · all palm now · ${TICKER}`
+          ) : (
+            `${ISLAND} · a forest island · ${TICKER}`
+          )}
+        </p>
+        {stage === "gone" ? (
+          <h1 className="hero__h">
+            The forest
+            <br />
+            <em>is gone.</em>
+          </h1>
+        ) : (
+          <h1 className="hero__h">
+            Every buy
+            <br />
+            burns <em>a tree.</em>
+          </h1>
+        )}
         <p className="hero__sub">
-          {left === 0 && live
-            ? "The last tree is gone. The island is all palm now. Holding still pays; nothing grows back."
-            : `${ISLAND} was old forest, edge to edge. Each ${TICKER} buy clears one tree and a palm goes in, in a straight row. The ten biggest holders own the plantation and get paid in ETH from the fees. Sell once and you go up in smoke.`}
+          {stage === "gone"
+            ? `The last tree burned${last ? ` in ${nameFor(last.buyer, last.nickname, last.x).name}'s buy` : ""}. Oren's tree is gone and the island is all palm. The plantation still pays its ten owners in ETH; nothing grows back.`
+            : stage === "last100"
+              ? `Under a hundred trees stand on ${ISLAND}. Each buy takes one, and the very last is Oren's. The ten biggest holders own the plantation and get paid in ETH. Sell once and you go up in smoke.`
+              : `${ISLAND} was old forest, edge to edge. Each ${TICKER} buy clears one tree and a palm goes in, in a straight row. The ten biggest holders own the plantation and get paid in ETH from the fees. Sell once and you go up in smoke.`}
           {DEMO ? <em className="demo"> Demo data.</em> : null}
         </p>
         <div className="hero__acts">
           <BuyButton status={status} />
-          <a className="btn is-ghost" href="#board">
-            The concessions <ArrowDown weight="bold" aria-hidden="true" />
-          </a>
+          {stage === "gone" && last ? (
+            <button type="button" className="btn is-ghost" onClick={() => openShare({ n: last.n, amount: last.amount, t: last.t, total, who: nameFor(last.buyer, last.nickname, last.x).name })}>
+              The last tree's card
+            </button>
+          ) : (
+            <a className="btn is-ghost" href="#board">
+              The concessions <ArrowDown weight="bold" aria-hidden="true" />
+            </a>
+          )}
         </div>
       </div>
 
       <dl className="meter" aria-label="The forest">
-        <div className="meter__cell">
+        <div className={`meter__cell ${stage === "last100" ? "is-alarm" : ""}`}>
           <dt>Trees left</dt>
           <dd className="num is-forest" key={`l${left}`}>
             {left.toLocaleString("en-US")}

@@ -31,9 +31,8 @@ export interface ForestState {
 
 export const freshForest = (): ForestState => ({ burned: 0, recent: [], seen: [], book: [], marks: [] });
 
-/** The moments: a share of the island cleared, the last hundred, the last tree. */
-export const MARKS = ["10%", "25%", "50%", "75%", "90%", "last100", "gone"] as const;
-export type Mark = (typeof MARKS)[number];
+export { MARKS, marksAt, type Mark } from "../src/lib/marks";
+import { marksAt, type Mark } from "../src/lib/marks";
 
 export interface BuyCheck {
   src: string;
@@ -87,15 +86,6 @@ export function recordTree(f: ForestState, total: number, b: { buyer: string; am
   const passed = marksAt(n, total).filter((m) => !f.marks.includes(m));
   f.marks.push(...passed);
   return { n, marks: passed };
-}
-
-/** The marks reached once `burned` of `total` trees are gone. */
-export function marksAt(burned: number, total: number): Mark[] {
-  const out: Mark[] = [];
-  for (const p of [10, 25, 50, 75, 90]) if (burned * 100 >= total * p) out.push(`${p}%` as Mark);
-  if (total - burned <= 100) out.push("last100");
-  if (burned >= total) out.push("gone");
-  return out;
 }
 
 /** One tree from the book, or null if it has not burned (or burned before the book was kept). */

@@ -310,13 +310,9 @@ export function short(addr: string) {
   return addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : "";
 }
 
-export function amount(v: string | number, digits = 0) {
-  const n = typeof v === "string" ? parseFloat(v) : v;
-  if (!isFinite(n)) return "0";
-  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
-  return n.toLocaleString("en-US", { maximumFractionDigits: digits });
-}
+export { amount } from "./format";
+import { amount } from "./format";
+import { marksAt } from "./marks";
 
 /** Fits a 5-tile flap: 1.9M, 630K, 940. */
 /** Dollars, short: $12.4K, $940, $3.20. */
@@ -351,8 +347,12 @@ export function dateWib(sec: number) {
 
 const now = () => Math.floor(Date.now() / 1000);
 
-/** The demo island: about a third cleared, and one more tree burns every few seconds. */
-let DEMO_BURNED = 1687;
+/** The demo island: about a third cleared, and one more tree burns every few seconds.
+ *  ?stage=quarter|last100|gone starts it just before that moment, to see it happen. */
+let DEMO_BURNED = (() => {
+  const st = typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("stage");
+  return st === "quarter" ? 1247 : st === "last100" ? 4898 : st === "gone" ? 4997 : 1687;
+})();
 
 export const demoStatus = (): Status => ({
   online: true,
@@ -587,7 +587,16 @@ export interface BurnRow {
   nickname?: string;
   x?: XProfile | null;
 }
-export type Forest = { total: number; burned: number; minTokens: string; recent: BurnRow[] };
+export type Forest = {
+  total: number;
+  burned: number;
+  minTokens: string;
+  recent: BurnRow[];
+  /** Marks passed so far ("25%", "last100", "gone"). Older engines omit them. */
+  marks?: string[];
+  /** The last tree, once the forest is gone. */
+  last?: BurnRow | null;
+};
 
 const demoBurns: BurnRow[] = [];
 const demoBuyer = (k: number) => `0x${((k * 2246822519) >>> 0).toString(16).padStart(8, "0")}${((k * 3266489917) >>> 0).toString(16).padStart(8, "0")}a1b2c3d4e5f6a7b8c9d0e1f2`.slice(0, 42);
@@ -602,7 +611,17 @@ const demoBurn = (n: number, t: number): BurnRow => ({
 });
 for (let i = 0; i < 30; i++) demoBurns.push(demoBurn(DEMO_BURNED - i, now() - i * 47 - 20));
 
-export const demoForest = (): Forest => ({ total: 5000, burned: DEMO_BURNED, minTokens: "10000", recent: demoBurns.slice(0, 30) });
+export const demoForest = (): Forest => ({
+  total: 5000,
+  burned: DEMO_BURNED,
+  minTokens: "10000",
+  recent: demoBurns.slice(0, 30),
+  marks: marksAt(DEMO_BURNED, 5000),
+  last: DEMO_BURNED >= 5000 ? demoBurns[0] : null,
+});
+
+/** One demo tree, for ?tree=n in the illustration edition. */
+export const demoTree = (n: number) => ({ ...demoBurn(n, now() - Math.max(0, DEMO_BURNED - n) * 47), amount: amount(demoBurn(n, 0).amount) });
 
 /** The demo edition burns one more tree now and then, so the island can be watched changing. */
 if (typeof window !== "undefined" && DEMO) {

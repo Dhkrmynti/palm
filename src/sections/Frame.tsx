@@ -6,8 +6,10 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowUpRight, Flame, XLogo } from "@phosphor-icons/react";
 import { prefersReducedMotion } from "../lib/motion";
 import { OrenFace } from "./Story";
+import { openShare } from "../ui/ShareCard";
+import { nameFor } from "../lib/alias";
 import { ForestEdge } from "../world/Edges";
-import { DEMO, X_URL, dexUrl, type Status } from "../lib/api";
+import { DEMO, X_URL, dexUrl, type Forest, type Status } from "../lib/api";
 import { CHAIN, ISLAND, NAME, TICKER } from "../lib/brand";
 import { BuyButton, CaCopy, ConnectButton, openPlot, useMedia } from "../ui/Bits";
 
@@ -103,7 +105,9 @@ export function TopBar({ status }: { status: Status | null }) {
   );
 }
 
-export function Closing({ status, orenAddr }: { status: Status | null; orenAddr?: string }) {
+export function Closing({ status, forest, orenAddr }: { status: Status | null; forest: Forest | null; orenAddr?: string }) {
+  const gone = !!forest && forest.burned >= forest.total;
+  const last = forest?.last ?? null;
   const root = useRef<HTMLElement>(null);
   const narrow = useMedia("(max-width: 760px)");
   const ca = DEMO ? "" : status?.tokenAddress;
@@ -135,7 +139,13 @@ export function Closing({ status, orenAddr }: { status: Status | null; orenAddr?
               );
             })}
           </g>
-          <g className="night__tree" fill="#0b1712">
+          {gone ? (
+            <g className="night__stump" fill="#0b1712">
+              <path d="M1188 300 L1190 262 L1196 270 L1202 254 L1208 268 L1214 258 L1218 300 Z" />
+              <circle cx="1203" cy="236" r="3" fill="#ff8a3a" opacity="0.8" />
+            </g>
+          ) : null}
+          <g className="night__tree" fill="#0b1712" style={gone ? { display: "none" } : undefined}>
             <rect x="1196" y="120" width="16" height="190" />
             <path d="M1204 210 L1160 160 M1204 180 L1250 140" stroke="#0b1712" strokeWidth="8" />
             <circle cx="1204" cy="104" r="64" />
@@ -143,14 +153,14 @@ export function Closing({ status, orenAddr }: { status: Status | null; orenAddr?
             <circle cx="1262" cy="132" r="50" />
             <circle cx="1220" cy="60" r="40" />
           </g>
-          <g className="night__oren" transform="translate(1176 66)">
+          <g className="night__oren" transform="translate(1176 66)" style={gone ? { display: "none" } : undefined}>
             <svg width="56" height="56" viewBox="0 0 64 64">
               <OrenFace size={64} />
             </svg>
           </g>
         </svg>
       </div>
-      {orenAddr ? (
+      {orenAddr && !gone ? (
         <button type="button" className="night__who num" onClick={() => openPlot(orenAddr)}>
           Oren · dev wallet · open the record
         </button>
@@ -163,9 +173,15 @@ export function Closing({ status, orenAddr }: { status: Status | null; orenAddr?
           <em>doesn't come back.</em>
         </p>
         <p className="end__sub">
-          Oren still sits in the last tree, the one the fire reaches last. That is the dev wallet: it watches, it is never ranked, never paid from the harvest. Buy and a
-          tree burns. Hold and the palms are yours. Sell and you are smoke.
+          {gone
+            ? `The last tree burned${last ? ` in ${nameFor(last.buyer, last.nickname, last.x).name}'s buy, tree #${last.n.toLocaleString("en-US")}` : ""}. Oren's tree went with it. The palms stand in rows where the forest was, and the ten who hold the most still own them.`
+            : "Oren still sits in the last tree, the one the fire reaches last. That is the dev wallet: it watches, it is never ranked, never paid from the harvest. Buy and a tree burns. Hold and the palms are yours. Sell and you are smoke."}
         </p>
+        {gone && last ? (
+          <button type="button" className="btn is-fire" onClick={() => openShare({ n: last.n, amount: last.amount, t: last.t, total: forest!.total, who: nameFor(last.buyer, last.nickname, last.x).name })}>
+            The last tree's card
+          </button>
+        ) : null}
         <div className="end__acts">
           <BuyButton status={status} />
           <CaCopy status={status} compact={narrow} />

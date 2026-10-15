@@ -13,7 +13,7 @@ import { Treeline } from "./sections/Treeline";
 import { Board } from "./sections/Board";
 import { Haze, Ledger, Mill } from "./sections/Mill";
 import { PlotDrawer, PlotSection } from "./sections/Plot";
-import { BurnToast, ShareCard } from "./ui/ShareCard";
+import { BurnToast, MarkBanner, ShareCard, useTreeFromLink } from "./ui/ShareCard";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -31,6 +31,7 @@ export function App() {
   const feed = useFeed(pond, rounds, forest, live);
 
   useEffect(restoreWallet, []);
+  useTreeFromLink(live, forest?.total ?? 5000);
 
   // Scenes measure where they start once; when fonts or live rows change the height above them,
   // measure again so nothing starts in the wrong place.
@@ -125,10 +126,11 @@ export function App() {
         <Haze status={status} />
         <PlotSection />
       </main>
-      <Closing status={status} orenAddr={live && pond?.house ? pond.house.addr : undefined} />
+      <Closing status={status} forest={live ? forest : null} orenAddr={live && pond?.house ? pond.house.addr : undefined} />
       <PlotDrawer />
       <ShareCard />
       <BurnToast forest={live ? forest : null} />
+      <MarkBanner forest={live ? forest : null} />
     </div>
   );
 }

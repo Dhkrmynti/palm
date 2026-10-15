@@ -1788,3 +1788,94 @@
 .ticker__run button:hover b {
   text-decoration: underline;
 }
+
+/* ───────── marks and the end ───────── */
+
+.markbar {
+  position: fixed;
+  z-index: 56;
+  top: 76px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 10px 10px 10px 16px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #3a1406, #1b0c06);
+  border: 1px solid rgba(255, 140, 40, 0.55);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 90, 31, 0.25);
+  color: var(--paper);
+  transform: translateX(-50%);
+  animation: mark-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes mark-in {
+  from {
+    transform: translate(-50%, -30px) scale(0.96);
+    opacity: 0;
+  }
+}
+
+.markbar__k {
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: var(--fire);
+  color: #1a0d05;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.markbar.is-gone {
+  background: linear-gradient(90deg, #232a1a, #11160d);
+  border-color: rgba(201, 216, 107, 0.5);
+}
+
+.markbar.is-gone .markbar__k {
+  background: var(--palm);
+}
+
+@media (max-width: 640px) {
+  .markbar {
+    flex-wrap: wrap;
+    top: 66px;
+  }
+}
+
+/* the sky goes hazier as the island is cleared */
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(ellipse 80% 60% at 60% 40%, rgba(150, 120, 90, calc(var(--cleared, 0) * 0.22)), transparent 70%);
+  pointer-events: none;
+}
+
+.hero__alarm {
+  color: var(--fire);
+  animation: alarm 1.4s ease-in-out infinite;
+}
+
+@keyframes alarm {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.meter__cell.is-alarm dd {
+  color: var(--fire);
+  animation: alarm 1.4s ease-in-out infinite;
+}
+
+.hero.is-gone .hero__h em {
+  color: var(--palm);
+}
+
+.end__sub + .btn {
+  margin-top: 22px;
+}

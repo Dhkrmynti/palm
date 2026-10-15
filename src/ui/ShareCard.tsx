@@ -5,7 +5,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { DownloadSimple, Flame, ShareNetwork, X as Close, XLogo } from "@phosphor-icons/react";
-import { DEMO, type Forest } from "../lib/api";
+import { DEMO, demoTree, type Forest } from "../lib/api";
 import { nameFor } from "../lib/alias";
 import { drawCard, postText, type CardTree } from "../lib/sharecard";
 import { speciesOf } from "../lib/trees";
@@ -65,9 +65,10 @@ export function ShareCard() {
     }
   };
   const post = () => {
-    const site = DEMO ? "" : ` ${window.location.origin}`;
-    window.open(`https://x.com/intent/post?text=${encodeURIComponent(text + site)}`, "_blank", "noopener");
-    setNote("X can't take a picture from a link: save the card first, then add it to the post.");
+    // the tree's own page carries the card as its preview, so the post shows the picture by itself
+    const link = DEMO ? "" : ` ${window.location.origin}/tree/${tree.n}`;
+    window.open(`https://x.com/intent/post?text=${encodeURIComponent(text + link)}`, "_blank", "noopener");
+    setNote(DEMO ? "This is the demo: save the card and add it to the post yourself." : "The link shows the card on X once the post is up. You can still add the saved picture if you like.");
   };
 
   return (
@@ -99,6 +100,80 @@ export function ShareCard() {
         <p className="share__text">{text}</p>
         {note ? <p className="share__note num">{note}</p> : null}
       </div>
+    </div>
+  );
+}
+
+/** A link to /?tree=<n> (where /tree/<n> sends people) opens that tree's card. */
+export function useTreeFromLink(live: boolean, total: number) {
+  useEffect(() => {
+    const n = parseInt(new URLSearchParams(window.location.search).get("tree") || "", 10);
+    if (!(n > 0)) return;
+    const clean = () => {
+      const u = new URL(window.location.href);
+      u.searchParams.delete("tree");
+      window.history.replaceState(null, "", u.pathname + u.search + u.hash);
+    };
+    if (DEMO) {
+      const d = demoTree(n);
+      openShare({ n, amount: d.amount.replace(/,/g, ""), t: d.t, total, who: nameFor(d.buyer, d.nickname, d.x).name });
+      return clean();
+    }
+    if (!live) return;
+    fetch(`/api/tree/${n}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j?.data) openShare({ n, amount: j.data.amount, t: j.data.t, total: j.data.total, who: j.data.who });
+      })
+      .catch(() => {})
+      .finally(clean);
+  }, [live, total]);
+}
+
+const MARK_LINE: Record<string, string> = {
+  "10%": "A tenth of the island is cleared.",
+  "25%": "A quarter of the island is cleared.",
+  "50%": "Half the island is palm now.",
+  "75%": "Three quarters cleared. The forest is a strip.",
+  "90%": "Nine in ten trees are gone.",
+  last100: "A hundred trees left. Oren's tree is the last one.",
+  gone: "The last tree burned. The forest is gone.",
+};
+
+/** When the island passes a mark while someone is watching, the page says so. */
+export function MarkBanner({ forest }: { forest: Forest | null }) {
+  const seen = useRef<Set<string> | null>(null);
+  const [mark, setMark] = useState<{ m: string; n: number } | null>(null);
+  useEffect(() => {
+    if (!forest?.marks) return;
+    if (!seen.current) {
+      seen.current = new Set(forest.marks);
+      return;
+    }
+    const fresh = forest.marks.filter((m) => !seen.current!.has(m));
+    fresh.forEach((m) => seen.current!.add(m));
+    if (fresh.length) setMark({ m: fresh[fresh.length - 1], n: forest.burned });
+  }, [forest]);
+  useEffect(() => {
+    if (!mark) return;
+    const t = window.setTimeout(() => setMark(null), 20000);
+    return () => clearTimeout(t);
+  }, [mark]);
+  if (!mark || !forest) return null;
+  const gone = mark.m === "gone";
+  const r = forest.recent.find((b) => b.n === mark.n) ?? forest.recent[0];
+  return (
+    <div className={`markbar ${gone ? "is-gone" : ""}`} role="status">
+      <span className="markbar__k num">{gone ? "The end" : mark.m === "last100" ? "Last 100" : `${mark.m} cleared`}</span>
+      <p>{MARK_LINE[mark.m] ?? ""}</p>
+      {r ? (
+        <button type="button" className="btn is-fire is-small" onClick={() => openShare({ n: r.n, amount: r.amount, t: r.t, total: forest.total, who: nameFor(r.buyer, r.nickname, r.x).name })}>
+          {gone ? "The last tree's card" : `Tree #${r.n.toLocaleString("en-US")}'s card`}
+        </button>
+      ) : null}
+      <button type="button" className="toast__x" onClick={() => setMark(null)} aria-label="Dismiss">
+        <Close weight="bold" />
+      </button>
     </div>
   );
 }
