@@ -3,24 +3,15 @@
 Untuk yang punya akses SSH ke VPS. Skripnya **hanya menambah** satu situs nginx untuk domain kamu dan
 satu proses pm2 (`palm-engine`, port 5041). Situs dan aplikasi lain yang sudah ada di server **tidak diubah**.
 
-## 0. Sekali saja: taruh kode di GitHub
-
-Folder ini sudah repo git (branch `main`). Buat repo **private** di GitHub, lalu dari laptop:
-
-```sh
-git remote add origin https://github.com/<akun>/palm.git
-git push -u origin main
-```
-
 ## 1. Masuk ke VPS lalu ambil kodenya
+
+Kode ada di repo public https://github.com/Dhkrmynti/palm, jadi tidak perlu token GitHub.
 
 ```sh
 ssh root@<IP-VPS>
 apt-get install -y git
-git clone https://github.com/<akun>/palm.git /opt/palm
+git clone https://github.com/Dhkrmynti/palm.git /opt/palm
 ```
-
-Karena repo private, GitHub minta username dan **token** (bukan password).
 
 ## 2. Pasang
 

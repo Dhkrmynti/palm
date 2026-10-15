@@ -87,7 +87,7 @@ map is drawn from the share of trees burned, so changing the size later moves th
 
 ## Not done yet
 
-- No token, domain, X account or server yet. `X_URL` in `src/lib/api.ts` is empty.
+- Code: https://github.com/Dhkrmynti/palm (public). No token, domain, X account or server yet. `X_URL` in `src/lib/api.ts` is empty.
 - Buy detection has passed its tests and is ready for the dry run, but has not seen a real chain:
   the Robinhood RPC is blocked from the dev laptop. Run the dry run on the server before launch.
 - X posting is written against X's API and its signature matches X's published example, but has not
