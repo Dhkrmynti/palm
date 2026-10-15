@@ -19,27 +19,44 @@ import path from "path";
 import { ethers } from "ethers";
 import { config, saveConfig, state, saveStateNow, saveStateSoon, resetStateForToken, logs, log, CYCLE, type Holder, type Payout, type Round, type RoundKind } from "./store";
 
+/** The rules a buy is checked against; see bot/forest.ts. */
+function buyRules(ex: Set<string>, sinks: Set<string>): BuyRules {
+  return {
+    minUnits: ethers.parseUnits(config.treeMinTokens || "0", decimals),
+    minUSD: config.treeMinUSD,
+    tokenUSD: price.tokenUSD,
+    decimals,
+    excluded: ex,
+    sinks,
+    router: lc(UNISWAP_V4_UNIVERSAL_ROUTER),
+    dead: DEAD,
+    isRelay: (a) => !!state.holders[a]?.relay,
+    isContract: contractAt,
+  };
+}
+
 /** A buy: tokens leaving the curve, a pool or a router, landing in a plain wallet. One tree per tx. */
 async function burnTree(src: string, dst: string, value: bigint, tx: string, t: number, ex: Set<string>, sinks: Set<string>) {
   const f = state.forest;
-  if (f.burned >= config.forestTrees || f.seen.includes(tx)) return;
-  if (ex.has(dst) || sinks.has(dst) || dst === DEAD) return;
-  if (value < ethers.parseUnits(config.treeMinTokens || "0", decimals)) return;
-  const fromMarket = sinks.has(src) || src === lc(UNISWAP_V4_UNIVERSAL_ROUTER) || !!state.holders[src]?.relay || (await contractAt(src));
-  if (!fromMarket || (await contractAt(dst))) return;
-  f.burned++;
-  f.seen.unshift(tx);
-  if (f.seen.length > 400) f.seen.length = 400;
-  f.recent.unshift({ n: f.burned, tx, buyer: dst, amount: value.toString(), t });
+  if (await whyNotATree(f, config.forestTrees, { src, dst, value, tx }, buyRules(ex, sinks))) return;
+  const { n, marks } = recordTree(f, config.forestTrees, { buyer: dst, amount: value.toString(), t, tx });
   const h = state.holders[dst];
   if (h) {
     h.treeCount = (h.treeCount || 0) + 1;
-    h.trees = [{ n: f.burned, tx, amount: value.toString(), t }, ...(h.trees || [])].slice(0, 12);
+    h.trees = [{ n, tx, amount: value.toString(), t }, ...(h.trees || [])].slice(0, 12);
   }
-  if (f.recent.length > 60) f.recent.length = 60;
-  if (f.burned === config.forestTrees) log("warn", "The last tree burned. The island is all palm.");
+  for (const m of marks) onMark(m, n);
+}
+
+/** A moment worth telling: logged, and posted to X when posting is set up. Only marks reached live
+ *  are posted; a full re-index after a reset passes them all again quietly. */
+function onMark(m: Mark, n: number) {
+  log("warn", m === "gone" ? "The last tree burned. The island is all palm." : `Forest mark: ${m} (tree #${n}).`);
+  if (Date.now() / 1000 - (state.forest.book[n - 1]?.[2] ?? 0) < 600) postMark(m, n, config.forestTrees).catch((e) => log("error", `X post failed: ${e.message}`));
 }
 import { UNISWAP_V4_UNIVERSAL_ROUTER } from "./uniswap-v4";
+import { recordTree, treeAt, whyNotATree, type BuyRules, type Mark } from "./forest";
+import { postMark } from "./xpost";
 import { bylineOf, bylineMessage, claimByline, clearX, issueNonce, mugshotOf, rateLimited, removeByline, setX, spendNonce, xMessage, xOf } from "./byline";
 import { backTo, finishLink, parkDemoResult, startLink, takeDemoResult, xDemoEnabled, xEnabled } from "./xlink";
 
@@ -736,6 +753,12 @@ const server = http.createServer((req, res) => {
         total: config.forestTrees,
         burned: state.forest.burned,
         minTokens: config.treeMinTokens,
+        minUSD: config.treeMinUSD || 0,
+        marks: state.forest.marks,
+        last: (() => {
+          const t = state.forest.burned >= config.forestTrees ? treeAt(state.forest, config.forestTrees) : null;
+          return t ? { ...t, amount: fmt(t.amount), nickname: bylineOf(t.buyer), x: xOf(t.buyer) } : null;
+        })(),
         recent: state.forest.recent.slice(0, 30).map((b) => ({ ...b, amount: fmt(b.amount), nickname: bylineOf(b.buyer), x: xOf(b.buyer) })),
       },
     });

@@ -3,6 +3,7 @@
  * bot-config.json holds operator settings (incl. the private key, never served by the API).
  * bot-state.json holds the indexer, holder book, rounds and totals.
  */
+import { freshForest, type ForestState } from "./forest";
 import fs from "fs";
 import path from "path";
 
@@ -54,6 +55,8 @@ export interface Config {
   startBlock: number;
   /** Trees on the island at launch. Every buy burns one; the forest never grows back. */
   forestTrees: number;
+  /** Optional: the smallest buy in USD that burns a tree, once a price is known. 0 = off. */
+  treeMinUSD: number;
   /** A buy smaller than this (whole tokens) burns nothing, so dust buys can't clear the island. */
   treeMinTokens: string;
 }
@@ -83,6 +86,7 @@ export const config: Config = {
   port: parseInt(env.PORT || "5041", 10),
   startBlock: parseInt(env.START_BLOCK || "0", 10),
   forestTrees: parseInt(env.FOREST_TREES || "5000", 10),
+  treeMinUSD: parseFloat(env.TREE_MIN_USD || "0") || 0,
   treeMinTokens: env.TREE_MIN_TOKENS || "10000",
 };
 
@@ -157,16 +161,6 @@ export interface Round {
   counted?: { claim?: boolean; keeper?: boolean };
 }
 
-/** One buy, one tree: what burned, who bought, in which transaction. Display only. */
-export interface Burn {
-  /** The tree's number, 1 = the first tree that burned. */
-  n: number;
-  tx: string;
-  buyer: string;
-  /** Raw token units bought. */
-  amount: string;
-  t: number;
-}
 
 export interface State {
   lastIndexedBlock: number;
@@ -182,11 +176,10 @@ export interface State {
     keeperWei: string;
   };
   /** The forest: how many trees burned, the latest burns, and recent tx hashes (one tree per buy tx). */
-  forest: { burned: number; recent: Burn[]; seen: string[] };
+  forest: ForestState;
 }
 
 const freshTotals = () => ({ feesClaimedWei: "0", fedWei: "0", keeperWei: "0" });
-const freshForest = () => ({ burned: 0, recent: [] as Burn[], seen: [] as string[] });
 
 export const state: State = {
   lastIndexedBlock: 0,

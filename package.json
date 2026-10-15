@@ -8,7 +8,9 @@
     "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview --port 5203",
     "bot": "tsx bot/pads-engine.ts",
-    "typecheck:bot": "tsc -p tsconfig.bot.json"
+    "typecheck:bot": "tsc -p tsconfig.bot.json",
+    "test": "tsx --test bot/*.test.ts",
+    "forest:dryrun": "tsx scripts/forest-dryrun.ts"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.2.8",
